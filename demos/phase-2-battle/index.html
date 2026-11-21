@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 2 Battle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #1d1b2b; --felt: #26404a; --felt-edge: #1b2f37; --fg: #f4f1ea; --muted: #b9b3c9;
+  --card: #fffaf0; --ink: #2a2530; --cons: #3f7fd9; --vowel: #d9534f; --dig: #d9a21c;
+  --hp: #4cc38a; --hp-low: #e8574a; --accent: #a28cff; --glow: #ffe27a;
+  --panel: #2c2940; --line: #44405c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 17px/1.4 "Andika", system-ui, sans-serif; overflow: hidden; user-select: none; -webkit-user-select: none; }
+button { font: inherit; cursor: pointer; }
+#game { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; max-width: 1100px; margin: 0 auto; padding: 10px 16px; gap: 8px; }
+
+/* Player strips */
+.strip { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; }
+.who { display: flex; align-items: center; gap: 12px; min-width: 260px; }
+.avatar { font-size: 54px; width: 72px; height: 72px; display: grid; place-items: center; background: var(--panel); border-radius: 50%; border: 3px solid var(--line); transition: transform .1s; }
+.avatar.hit { animation: shake .45s; }
+@keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-9px) rotate(-4deg); } 40% { transform: translateX(8px) rotate(3deg); } 60% { transform: translateX(-5px); } 80% { transform: translateX(4px); } }
+.name { font-weight: 700; font-size: 19px; }
+.hpbar { width: 180px; height: 16px; background: #0004; border-radius: 9px; overflow: hidden; border: 1px solid #0006; }
+.hpbar > div { height: 100%; background: var(--hp); transition: width .6s ease, background .3s; }
+.hpbar.low > div { background: var(--hp-low); }
+.hptext { font-size: 14px; color: var(--muted); }
+.status { font-size: 14px; color: var(--glow); min-height: 20px; }
+
+/* Hands */
+.hand { display: flex; gap: 8px; min-width: 0; justify-content: center; align-items: flex-end; min-height: 130px; }
+.opp-hand { min-height: 70px; }
+.card { position: relative; flex: 0 1 92px; min-width: 64px; width: 92px; height: 128px; border-radius: 12px; background: var(--card); color: var(--ink); display: grid; place-items: center; box-shadow: 0 4px 0 #0005; border: 4px solid var(--cons); transition: transform .15s, box-shadow .15s, opacity .3s; }
+.card.vowel { border-color: var(--vowel); }
+.card.digraph { border-color: var(--dig); }
+.card .glyph { font-size: 52px; font-weight: 700; line-height: 1; margin-top: -6px; }
+.card .dmg { position: absolute; bottom: 5px; left: 7px; font-size: 14px; font-weight: 700; }
+.card .fx { position: absolute; bottom: 4px; right: 6px; font-size: 16px; }
+.card .tag { position: absolute; top: 4px; left: 0; right: 0; text-align: center; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: #8a8394; }
+.hand.mine .card:hover { transform: translateY(-10px); }
+.hand.mine.active .card { cursor: pointer; }
+.card.picked { transform: translateY(-18px); box-shadow: 0 0 0 4px var(--glow), 0 8px 0 #0005; }
+.card.fits::after { content: "+3"; position: absolute; top: -10px; right: -10px; background: var(--glow); color: var(--ink); font-size: 13px; font-weight: 700; border-radius: 10px; padding: 1px 6px; }
+.back { width: 46px; height: 64px; border-radius: 8px; background: repeating-linear-gradient(45deg, #5b4aa8 0 6px, #4b3c90 6px 12px); border: 3px solid #cfc6ff55; box-shadow: 0 3px 0 #0005; }
+.card.new { animation: pop .35s; }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* Table */
+#table { position: relative; background: radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-edge) 100%); border-radius: 26px; border: 3px solid #0005; display: grid; grid-template-columns: 170px 1fr 170px; align-items: center; padding: 14px; min-height: 0; }
+.cue { justify-self: center; width: 140px; background: var(--card); color: var(--ink); border-radius: 12px; padding: 10px 8px; text-align: center; box-shadow: 0 4px 0 #0005; border: 3px solid var(--glow); }
+.cue .pic { font-size: 46px; line-height: 1.1; }
+.cue .word { font-size: 28px; font-weight: 700; letter-spacing: .04em; }
+.cue .gap { display: inline-block; min-width: 26px; border-bottom: 4px solid var(--ink); margin: 0 3px; height: 30px; vertical-align: -6px; }
+.cue .gap.wide { min-width: 48px; }
+.cue .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #8a8394; }
+.cue .left { font-size: 11px; color: #8a8394; }
+.cue.flash { animation: flash .7s; }
+@keyframes flash { 50% { box-shadow: 0 0 0 10px var(--glow); } }
+.cue.done { opacity: .5; border-color: #aaa; }
+#center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; height: 100%; }
+#slot { width: 112px; height: 154px; border-radius: 14px; border: 3px dashed #ffffff33; display: grid; place-items: center; }
+#slot .card { width: 104px; height: 146px; }
+#slot .card .glyph { font-size: 60px; }
+#msg { font-size: 22px; text-align: center; min-height: 32px; max-width: 520px; text-shadow: 0 2px 0 #0006; }
+#actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; min-height: 48px; }
+.btn { background: var(--accent); color: #1d1b2b; border: 0; border-radius: 12px; padding: 10px 18px; font-weight: 700; font-size: 18px; box-shadow: 0 3px 0 #0006; }
+.btn.alt { background: #e8e3f5; }
+.btn.warn { background: var(--glow); }
+.btn:disabled { opacity: .45; cursor: default; }
+.deckinfo { position: absolute; bottom: 8px; right: 14px; font-size: 13px; color: var(--muted); }
+
+/* Energy burst */
+.burst { position: fixed; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle, #fff 0%, var(--glow) 40%, #ff9a3c 70%, transparent 72%); pointer-events: none; z-index: 50; box-shadow: 0 0 30px 12px #ffd25a99; }
+.dmgnum { position: fixed; font-size: 40px; font-weight: 700; color: var(--glow); text-shadow: 0 3px 0 #000a; pointer-events: none; z-index: 51; animation: floatup 1.1s forwards; }
+@keyframes floatup { to { transform: translateY(-60px); opacity: 0; } }
+
+/* Overlay (trace pad, speak step, start, end) */
+#overlay { position: fixed; inset: 0; background: #0b0a12cc; display: none; place-items: center; z-index: 40; }
+#overlay.show { display: grid; }
+.panel { background: var(--panel); border: 2px solid var(--line); border-radius: 20px; padding: 18px 22px 20px; width: min(640px, calc(100vw - 32px)); text-align: center; box-shadow: 0 10px 40px #000a; }
+.panel h2 { margin: 0 0 4px; font-size: 26px; }
+.panel .prompt { font-size: 22px; min-height: 32px; margin: 6px 0 10px; }
+.panel .sub { color: var(--muted); font-size: 15px; }
+.pad { display: flex; gap: 6px; justify-content: center; background: var(--card); border-radius: 16px; padding: 6px; touch-action: none; }
+.pad svg { height: min(52vh, 380px); touch-action: none; cursor: crosshair; }
+.guide path { fill: none; stroke: #d9d3c7; stroke-width: 15; stroke-linecap: round; stroke-linejoin: round; }
+.guide path.done { stroke: #7cc79a; }
+.guide circle.dotg { fill: #d9d3c7; } .guide circle.dotg.done { fill: #7cc79a; }
+.lines line { stroke: #c9c2b4; stroke-width: 1; stroke-dasharray: 4 4; }
+.lines line.base { stroke-dasharray: none; stroke: #b5ad9e; }
+.markers circle { fill: #6b4fd8; } .markers text { fill: #fff; font-size: 12px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; font-family: system-ui; }
+.markers g.next circle { fill: #e8574a; animation: pulse 1s infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes pulse { 50% { transform: scale(1.35); } }
+.ink path { fill: none; stroke: #3b2f7a; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.anim circle { fill: #e8574a; } .anim path { fill: none; stroke: #e8574a88; stroke-width: 9; stroke-linecap: round; }
+.mic { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; padding: 8px 16px; border-radius: 30px; background: #0003; margin: 8px 0; }
+.mic .dot { width: 14px; height: 14px; border-radius: 50%; background: #777; }
+.mic.on .dot { background: #e8574a; animation: pulse 1s infinite; }
+.bigcard { display: flex; justify-content: center; margin: 6px 0 4px; }
+.taps { display: flex; gap: 14px; justify-content: center; margin-top: 10px; }
+.tapopt { width: 74px; height: 74px; border-radius: 50%; border: 4px solid #fff3; background: #3a3655; color: #fff; font-size: 30px; }
+.tapopt.ringed { border-color: var(--glow); box-shadow: 0 0 0 4px #ffe27a55; }
+.tapopt.pulse { animation: pulse 1s infinite; }
+.rowbtns { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+
+/* Debug */
+#debug { position: fixed; right: 8px; bottom: 8px; width: 320px; max-height: 46vh; overflow: auto; background: #000c; color: #cfc; font: 12px/1.35 ui-monospace, monospace; padding: 8px; border-radius: 8px; z-index: 60; display: none; }
+#debug button { font: 12px ui-monospace, monospace; margin: 2px; }
+#debug .log div { border-top: 1px solid #333; padding: 2px 0; }
+</style>
+</head>
+<body>
+<div id="game">
+  <div class="strip" id="oppStrip">
+    <div class="who">
+      <div class="avatar" id="oppAvatar">🦉</div>
+      <div>
+        <div class="name">Rival Rook</div>
+        <div class="hpbar" id="oppHpBar"><div style="width:100%"></div></div>
+        <div class="hptext" id="oppHpText">20 / 20</div>
+        <div class="status" id="oppStatus"></div>
+      </div>
+    </div>
+    <div class="hand opp-hand" id="oppHand"></div>
+    <div style="min-width:120px"></div>
+  </div>
+
+  <div id="table">
+    <div><div class="cue" id="oppCue"></div></div>
+    <div id="center">
+      <div id="slot"></div>
+      <div id="msg"></div>
+      <div id="actions"></div>
+    </div>
+    <div><div class="cue" id="myCue"></div></div>
+    <div class="deckinfo" id="deckInfo"></div>
+  </div>
+
+  <div class="strip" id="myStrip">
+    <div class="who">
+      <div class="avatar" id="myAvatar">🧒</div>
+      <div>
+        <div class="name">You</div>
+        <div class="hpbar" id="myHpBar"><div style="width:100%"></div></div>
+        <div class="hptext" id="myHpText">20 / 20</div>
+        <div class="status" id="myStatus"></div>
+      </div>
+    </div>
+    <div class="hand mine" id="myHand"></div>
+    <div style="min-width:120px"></div>
+  </div>
+</div>
+
+<div id="overlay"><div class="panel" id="panel"></div></div>
+<div id="debug"><div><b>debug</b> <button id="dbgSkip">skip step</button> <button id="dbgWin">opp hp→1</button></div><pre id="dbgState"></pre><div class="log" id="dbgLog"></div></div>
+
+<script src="../../shared/trace-engine.js"></script>
+<script src="../../shared/speech-letters.js"></script>
+<script src="../../shared/speech-sounds.js"></script>
+<script>
+'use strict';
+/* =====================================================================
+   Phase 2 battle demo. Spec: docs/specs/phase-2-battle.md
+   Params: ?speech=off  ?seed=123  ?debug=1  ?loose=1.5
+   ===================================================================== */
+const Q = new URLSearchParams(location.search);
+const DEBUG = Q.get('debug') === '1';
+let SPEECH = Q.get('speech') !== 'off';
+const LOOSE = parseFloat(Q.get('loose') || '1.5');
+
+/* ---------- utilities ---------- */
+function mulberry32(seed) { let t = seed >>> 0; return () => { t += 0x6D2B79F5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; }; }
+const rng = Q.get('seed') ? mulberry32(+Q.get('seed')) : Math.random;
+const shuffle = (arr) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const sleep = (ms) => new Promise(r => setTimeout(r, ms * (window.__fast ? 0.05 : 1)));
+const $ = (s) => document.querySelector(s);
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs = {}, parent) { const e = document.createElementNS(SVG_NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; }
+function h(tag, attrs = {}, ...kids) { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); } for (const k of kids) e.append(k); return e; }
+
+/* ---------- content (spec: Content) ---------- */
+const CARD_DEFS = {
+  m:  { type: 'consonant', dmg: 3, name: 'em',        nameTts: 'em',          sound: '/m/',  soundTts: 'mmmm' },
+  s:  { type: 'consonant', dmg: 3, name: 'es',        nameTts: 'ess',         sound: '/s/',  soundTts: 'sssss' },
+  t:  { type: 'consonant', dmg: 3, name: 'tee',       nameTts: 'tee',         sound: '/t/',  soundTts: 'tuh' },
+  p:  { type: 'consonant', dmg: 3, name: 'pee',       nameTts: 'pee',         sound: '/p/',  soundTts: 'puh', fx: 'pause' },
+  n:  { type: 'consonant', dmg: 3, name: 'en',        nameTts: 'en',          sound: '/n/',  soundTts: 'nnnn' },
+  c:  { type: 'consonant', dmg: 3, name: 'see',       nameTts: 'see',         sound: '/k/',  soundTts: 'kuh' },
+  a:  { type: 'vowel',     dmg: 4, name: 'ay',        nameTts: 'ay',          sound: '/a/',  soundTts: 'aah, as in apple' },
+  i:  { type: 'vowel',     dmg: 4, name: 'eye',       nameTts: 'eye',         sound: '/i/',  soundTts: 'ih, as in itch' },
+  sh: { type: 'digraph',   dmg: 5, name: 'es aitch',  nameTts: 'ess, aitch',  sound: '/sh/', soundTts: 'shhhh', fx: 'shush' },
+  ee: { type: 'digraph',   dmg: 5, name: 'ee ee',     nameTts: 'ee, ee',      sound: '/ee/', soundTts: 'eeee' }
+};
+const FX = { pause: { icon: '⏸️', label: 'Pause', text: 'skips their next turn' }, shush: { icon: '🤫', label: 'Shush', text: 'discards a card' } };
+const CUE_POOL = [
+  { pre: '',   post: 'at', fits: 'c',  pic: '🐱', word: 'cat' },
+  { pre: 'm',  post: 'p',  fits: 'a',  pic: '🗺️', word: 'map' },
+  { pre: 'p',  post: 'n',  fits: 'i',  pic: '📌', word: 'pin' },
+  { pre: '',   post: 'ip', fits: 'sh', pic: '🚢', word: 'ship' },
+  { pre: 'b',  post: '',   fits: 'ee', pic: '🐝', word: 'bee' },
+  { pre: '',   post: 'nt', fits: 'a',  pic: '🐜', word: 'ant' },
+  { pre: '',   post: 'an', fits: 'p',  pic: '🍳', word: 'pan' },
+  { pre: 's',  post: 't',  fits: 'i',  pic: '🪑', word: 'sit' },
+  { pre: '',   post: 'un', fits: 's',  pic: '☀️', word: 'sun' },
+  { pre: 'pa', post: '',   fits: 'n',  pic: '🍳', word: 'pan' }
+];
+const MAX_HP = 20, HAND = 5, CUE_BONUS = 3;
+
+/* ---------- engines ---------- */
+let TE, SL, SS;
+async function loadEngines() {
+  const strokes = await fetch('../../shared/strokes-lowercase.json').then(r => r.json());
+  TE = TraceEngine.create(strokes, { looseness: LOOSE });
+  SL = SpeechLetters.create(TE.letters);
+  SS = SpeechSounds.create(SL);
+}
+const lettersOf = (id) => id.length === 2 ? id.split('') : [id];
+
+/* ---------- debug ---------- */
+function dlog(...a) { if (!DEBUG) return; const d = h('div', {}, a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); $('#dbgLog').prepend(d); }
+let skipResolver = null;
+function setSkip(fn) { skipResolver = fn; }
+if (DEBUG) {
+  $('#debug').style.display = 'block';
+  $('#dbgSkip').onclick = () => { if (skipResolver) { const f = skipResolver; skipResolver = null; f(); } };
+  $('#dbgWin').onclick = () => { G.opp.hp = 1; render(); };
+}
+
+/* ---------- voice (speechSynthesis) ---------- */
+const Voice = {
+  voice: null,
+  init() {
+    if (!('speechSynthesis' in window)) return;
+    const pick = () => { const v = speechSynthesis.getVoices().filter(x => /^en/i.test(x.lang)); const pref = [/google us english/i, /natural/i, /samantha/i, /aria/i, /jenny/i, /zira/i]; for (const p of pref) { const f = v.find(x => p.test(x.name)); if (f) return f; } return v[0] || null; };
+    this.voice = pick(); speechSynthesis.onvoiceschanged = () => { this.voice = pick(); };
+  },
+  say(text, opts = {}) {
+    dlog('🔈', text);
+    if (window.__fast || !('speechSynthesis' in window)) return sleep(150);
+    return new Promise(res => {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text); if (this.voice) u.voice = this.voice; u.rate = opts.rate || 0.92; u.pitch = opts.pitch || 1.05;
+      let done = false; const fin = () => { if (!done) { done = true; res(); } };
+      u.onend = fin; u.onerror = fin; setTimeout(fin, 1200 + text.length * 90);
+      speechSynthesis.speak(u);
+    });
+  }
+};
+
+/* ---------- sfx ---------- */
+const SFX = {
+  ctx: null,
+  init() { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} },
+  tone(f, d = 0.15, type = 'sine', vol = 0.15, at = 0) { if (!this.ctx) return; const t = this.ctx.currentTime + at; const o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + d); o.connect(g).connect(this.ctx.destination); o.start(t); o.stop(t + d); },
+  chime() { this.tone(660, .18); this.tone(990, .25, 'sine', .12, .09); },
+  whoosh() { if (!this.ctx) return; const t = this.ctx.currentTime; const o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(880, t + .35); g.gain.setValueAtTime(.06, t); g.gain.exponentialRampToValueAtTime(.001, t + .4); o.connect(g).connect(this.ctx.destination); o.start(t); o.stop(t + .4); },
+  hit() { this.tone(120, .3, 'square', .12); this.tone(80, .35, 'triangle', .15, .05); },
+  soft() { this.tone(440, .12, 'triangle', .08); }
+};
+
+/* ---------- speech recognition (Web Speech API) ---------- */
+const Rec = {
+  SR: window.SpeechRecognition || window.webkitSpeechRecognition || null,
+  stream: null, track: null, active: null,
+  async enable() {
+    if (!this.SR) return 'unsupported';
+    if (!window.isSecureContext) return 'insecure';
+    try { this.stream = await navigator.mediaDevices.getUserMedia({ audio: true }); this.track = this.stream.getAudioTracks()[0]; return 'ok'; }
+    catch (e) { return 'refused'; }
+  },
+  /* Listen once. Resolves { alts:[{transcript,confidence}] } or { silence:true } or { error }. */
+  listen(timeoutMs = 7000) {
+    return new Promise(resolve => {
+      const r = new this.SR(); r.lang = 'en-US'; r.maxAlternatives = 5; r.interimResults = false; r.continuous = false;
+      let settled = false, got = null; const t0 = performance.now();
+      const finish = (v) => { if (settled) return; settled = true; clearTimeout(timer); try { r.abort(); } catch (e) {} this.active = null; setMic(false); resolve(v); };
+      const timer = setTimeout(() => finish(got || { silence: true }), timeoutMs);
+      r.onresult = (ev) => { const res = ev.results[0]; const alts = []; for (let i = 0; i < res.length; i++) alts.push({ transcript: res[i].transcript, confidence: res[i].confidence }); dlog('🎤', alts.map(a => `${a.transcript}(${(a.confidence || 0).toFixed(2)})`).join(' | ')); finish({ alts }); };
+      r.onerror = (ev) => { if (ev.error === 'no-speech' || ev.error === 'aborted') return; dlog('rec error', ev.error); finish({ error: ev.error }); };
+      r.onend = () => { if (!settled && performance.now() - t0 < timeoutMs - 400) { try { start(); } catch (e) { finish({ silence: true }); } } };
+      const start = () => { try { this.track ? r.start(this.track) : r.start(); } catch (e) { r.start(); } };
+      this.active = r; setMic(true);
+      try { start(); } catch (e) { finish({ error: 'start-failed' }); }
+    });
+  }
+};
+function setMic(on) { const m = document.querySelector('.mic'); if (m) { m.classList.toggle('on', on); m.querySelector('span').textContent = on ? 'Listening…' : 'Mic'; } }
+
+/* ---------- overlay helpers ---------- */
+function showPanel(...kids) { const p = $('#panel'); p.innerHTML = ''; p.append(...kids); $('#overlay').classList.add('show'); return p; }
+function hidePanel() { $('#overlay').classList.remove('show'); $('#panel').innerHTML = ''; }
+function setPrompt(text) { const p = $('#panel .prompt'); if (p) p.textContent = text; }
+
+/* ---------- card DOM ---------- */
+function cardEl(id, extra = '') {
+  const d = CARD_DEFS[id];
+  const c = h('div', { class: `card ${d.type} ${extra}`, 'data-id': id },
+    h('div', { class: 'tag' }, d.type === 'digraph' ? 'digraph' : d.type),
+    h('div', { class: 'glyph' }, id),
+    h('div', { class: 'dmg' }, '⚡' + d.dmg));
+  if (d.fx) c.append(h('div', { class: 'fx', title: FX[d.fx].label }, FX[d.fx].icon));
+  return c;
+}
+
+/* =====================================================================
+   Trace step (spec: Reading acts → Trace)
+   ===================================================================== */
+function buildTraceSVG(letter) {
+  const svg = el('svg', { viewBox: '-14 -14 128 228' });
+  const lines = el('g', { class: 'lines' }, svg);
+  for (const [y, cls] of [[0, ''], [50, ''], [150, 'base'], [200, '']]) el('line', { x1: -14, x2: 114, y1: y, y2: y, class: cls }, lines);
+  const guide = el('g', { class: 'guide' }, svg);
+  letter.strokes.forEach((s, i) => { if (s.isDot) el('circle', { cx: s.start[0], cy: s.start[1], r: 8, class: 'dotg', 'data-i': i }, guide); else el('path', { d: s.d, 'data-i': i }, guide); });
+  el('g', { class: 'anim' }, svg);
+  el('g', { class: 'ink' }, svg);
+  const markers = el('g', { class: 'markers' }, svg);
+  letter.strokes.forEach((s, i) => { const g = el('g', { 'data-i': i }, markers); el('circle', { cx: s.start[0], cy: s.start[1], r: 9 }, g); const t = el('text', { x: s.start[0], y: s.start[1] + .5 }, g); t.textContent = i + 1; });
+  return svg;
+}
+function animateStrokes(svg, letter, from = 0) {
+  return new Promise(async res => {
+    const g = svg.querySelector('.anim'); g.innerHTML = '';
+    for (let si = from; si < letter.strokes.length; si++) {
+      const s = letter.strokes[si]; const dot = el('circle', { r: 8, cx: s.start[0], cy: s.start[1] }, g);
+      if (s.isDot) { await sleep(300); continue; }
+      const trail = el('path', { d: '' }, g); const dur = 900; const t0 = performance.now();
+      await new Promise(r2 => { const step = (ts) => { const f = Math.min(1, (ts - t0) / dur); const k = Math.max(1, Math.round(f * (s.pts.length - 1))); trail.setAttribute('d', s.pts.slice(0, k + 1).map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' ')); const p = s.pts[k]; dot.setAttribute('cx', p[0]); dot.setAttribute('cy', p[1]); if (f < 1 && !window.__fast) requestAnimationFrame(step); else r2(); }; requestAnimationFrame(step); });
+      await sleep(200);
+    }
+    await sleep(300); g.innerHTML = ''; res();
+  });
+}
+const TRACE_HINTS = {
+  'wrong-start': (L, s) => s.hint === 'top' ? 'Start at the top.' : 'Start at the dot.',
+  'wrong-direction': () => 'Watch the arrow. Go this way.',
+  'wrong-order': () => 'Start with number one.',
+  'off-path': () => 'Stay on the letter.',
+  'scribble': () => "Let's draw it.",
+  'missing-lift': () => 'Lift your finger first.',
+  'partial': () => 'Keep going, all the way.'
+};
+/* Trace one card (1 or 2 letters). Resolves when every stroke is done. */
+function traceCard(id) {
+  window.__tracing = id;      // for automated tests
+  return new Promise(resolve => {
+    const ids = lettersOf(id);
+    const pad = h('div', { class: 'pad' });
+    const cells = ids.map(ch => ({ ch, L: TE.letters[ch], svg: buildTraceSVG(TE.letters[ch]), idx: 0, done: new Set() }));
+    cells.forEach(c => pad.append(c.svg));
+    showPanel(h('h2', {}, 'Trace it to pick it up'), h('div', { class: 'prompt' }, 'Trace the letter.'), pad, h('div', { class: 'sub' }, 'Follow the numbers. Red dot = start here.'));
+    let ci = 0, misses = 0, finished = false;
+    const finish = async () => { if (finished) return; finished = true; setSkip(null); SFX.chime(); setPrompt('Got it!'); await sleep(500); resolve(); };
+    setSkip(finish);
+    const markNext = () => {
+      cells.forEach((c, i) => c.svg.querySelectorAll('.markers g').forEach(g => g.classList.toggle('next', i === ci && +g.dataset.i === c.idx)));
+      cells.forEach((c, i) => c.svg.style.opacity = i === ci ? '1' : (i < ci ? '.85' : '.5'));
+    };
+    const completeStroke = (c) => {
+      const gs = c.svg.querySelector(`.guide [data-i="${c.idx}"]`); if (gs) gs.classList.add('done');
+      const mk = c.svg.querySelector(`.markers g[data-i="${c.idx}"]`); if (mk) mk.style.display = 'none';
+      c.done.add(c.idx); c.idx++; SFX.soft();
+      if (c.idx >= c.L.strokes.length) { ci++; misses = 0; if (ci >= cells.length) { finish(); return; } setPrompt('Now the next letter.'); }
+      markNext();
+    };
+    const together = async (c) => {      // after 2 misses: model, then accept (spec: "Let's do it together")
+      setPrompt("Let's do it together."); Voice.say("Let's do it together.");
+      await animateStrokes(c.svg, c.L, c.idx);
+      c.svg.querySelector('.ink').innerHTML = '';
+      while (ci < cells.length && cells[ci] === c && c.idx < c.L.strokes.length) completeStroke(c);
+    };
+    markNext();
+    cells.forEach((c, cIndex) => {
+      let pts = null, path = null, ptype = 'mouse', busy = false;
+      const toLocal = (ev) => { const p = c.svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; const q = p.matrixTransform(c.svg.getScreenCTM().inverse()); return [q.x, q.y]; };
+      c.svg.addEventListener('pointerdown', (ev) => {
+        if (finished || busy || cIndex !== ci) return; ev.preventDefault(); c.svg.setPointerCapture(ev.pointerId);
+        ptype = ev.pointerType || 'mouse'; pts = [toLocal(ev)]; path = el('path', { d: '' }, c.svg.querySelector('.ink'));
+      });
+      c.svg.addEventListener('pointermove', (ev) => { if (!pts) return; const p = toLocal(ev); const l = pts[pts.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) < 1) return; pts.push(p); path.setAttribute('d', pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ')); });
+      const up = async () => {
+        if (!pts) return; const user = pts; pts = null;
+        const r = TE.analyzeStroke(user, c.L, c.idx, TE.tolFor(ptype === 'pen' ? 'pen' : ptype === 'touch' ? 'touch' : 'mouse'), null, c.done);
+        dlog('trace', c.ch, 'stroke', c.idx, r.kind);
+        if (r.kind === 'complete') { completeStroke(c); return; }
+        if (r.kind === 'ignore') { path.remove(); return; }
+        busy = true; misses++;
+        const s = c.L.strokes[c.idx]; const hint = (TRACE_HINTS[r.kind] || TRACE_HINTS.partial)(c.L, s);
+        path.style.transition = 'opacity .4s'; path.style.opacity = '0'; setTimeout(() => path.remove(), 400);
+        if (misses >= 2) { await together(c); busy = false; return; }
+        setPrompt(hint + ' Watch.'); Voice.say(hint);
+        await animateStrokes(c.svg, c.L, c.idx); setPrompt('Your turn. Trace it.'); busy = false;
+      };
+      c.svg.addEventListener('pointerup', up); c.svg.addEventListener('pointercancel', up);
+    });
+  });
+}
+
+/* =====================================================================
+   Speak step (spec: Reading acts → Name / Sound) with tap fallback
+   ===================================================================== */
+const say = {
+  model(id, kind) { const d = CARD_DEFS[id]; return kind === 'name' ? `This one is ${d.nameTts}. Say ${d.nameTts}.` : `This one says ${d.soundTts}. Say ${d.soundTts}.`; },
+  value(id, kind) { const d = CARD_DEFS[id]; return kind === 'name' ? d.nameTts : d.soundTts; }
+};
+function tapOptions(id) {
+  const pool = Object.keys(CARD_DEFS).filter(x => x !== id && CARD_DEFS[x].type === CARD_DEFS[id].type);
+  const rest = Object.keys(CARD_DEFS).filter(x => x !== id && !pool.includes(x));
+  return shuffle([id, ...shuffle(pool).concat(shuffle(rest)).slice(0, 2)]);
+}
+/* Tap fallback: first tap plays an option and rings it; tapping the ringed one chooses it. */
+function tapFallback(id, kind, area) {
+  return new Promise(resolve => {
+    const opts = tapOptions(id); let ringed = null;
+    area.innerHTML = ''; const row = h('div', { class: 'taps' });
+    setPrompt(kind === 'name' ? 'Tap to hear each name. Tap again to choose.' : 'Tap to hear each sound. Tap again to choose.');
+    const btns = opts.map(o => { const b = h('button', { class: 'tapopt' }, '🔊'); b.onclick = async () => {
+      if (ringed !== o) { btns.forEach(x => x.classList.remove('ringed')); b.classList.add('ringed'); ringed = o; await Voice.say(say.value(o, kind)); return; }
+      if (o === id) { resolve({ ok: true, via: 'tap' }); return; }
+      await Voice.say(say.model(id, kind).split('.')[0] + '.'); btns.forEach(x => x.classList.remove('ringed', 'pulse')); const t = btns[opts.indexOf(id)]; t.classList.add('pulse'); ringed = null; setPrompt('Tap it.');
+      btns.forEach(x => { if (x !== t) x.disabled = true; });
+    }; row.append(b); return b; });
+    area.append(row);
+  });
+}
+/* One speak act. mode 'attack' (retry until right) or 'defend' (one real attempt). Resolves {ok, via}. */
+async function speakStep(id, kind, { title, mode = 'attack', panelCard = true } = {}) {
+  const area = h('div', {});
+  const mic = h('div', { class: 'mic' }, h('div', { class: 'dot' }), h('span', {}, 'Mic'));
+  const instr = kind === 'name' ? 'Say its name.' : 'Say its sound.';
+  showPanel(h('h2', {}, title), panelCard ? h('div', { class: 'bigcard' }, cardEl(id)) : '', h('div', { class: 'prompt' }, instr), SPEECH ? mic : '', area,
+    SPEECH ? h('div', { class: 'rowbtns' }, h('button', { class: 'btn alt', onclick: () => fallbackNow && fallbackNow() }, 'Use taps instead')) : '');
+  let fallbackNow = null; let skipped = false;
+  const skipP = new Promise(r => setSkip(() => { skipped = true; r({ ok: true, via: 'skip' }); }));
+  const run = async () => {
+    await Voice.say(instr);
+    if (!SPEECH) return tapFallback(id, kind, area);
+    const fbP = new Promise(r => { fallbackNow = () => { if (Rec.active) try { Rec.active.abort(); } catch (e) {} r('fallback'); }; });
+    let uncertainUsed = false, silences = 0, wrongs = 0;
+    while (!skipped) {
+      const got = await Promise.race([Rec.listen(7000), fbP]);
+      if (got === 'fallback') return tapFallback(id, kind, area);
+      if (got.error) { if (got.error === 'not-allowed' || got.error === 'service-not-allowed') SPEECH = false; setPrompt("Let's tap instead."); await Voice.say("Let's tap instead."); return tapFallback(id, kind, area); }
+      if (got.silence) { silences++; if (silences >= 2) { setPrompt("Let's tap instead."); await Voice.say("Let's tap instead."); return tapFallback(id, kind, area); } setPrompt(instr); await Voice.say(instr); continue; }
+      const r = kind === 'name' ? SS.scoreName(got.alts, id, { units: Object.keys(CARD_DEFS).filter(x => x.length === 1) }) : SS.scoreSound(got.alts, id);
+      dlog('score', kind, id, r.score, r.reason || '', r.via || '');
+      if (r.score === 'correct') return { ok: true, via: 'speech' };
+      if (r.score === 'incorrect') {
+        wrongs++; const m = say.model(id, kind); setPrompt(m); await Voice.say(m);
+        if (mode === 'defend') return { ok: false, via: 'speech' };
+        if (wrongs >= 3) return tapFallback(id, kind, area);
+        continue;
+      }
+      if (!uncertainUsed) { uncertainUsed = true; setPrompt("I didn't quite catch that. Say it again?"); await Voice.say("I didn't quite catch that. Say it again?"); continue; }
+      return tapFallback(id, kind, area);
+    }
+  };
+  const res = await Promise.race([run(), skipP]); setSkip(null);
+  if (Rec.active) try { Rec.active.abort(); } catch (e) {}
+  if (res.ok) { SFX.chime(); setPrompt(kind === 'name' ? 'Placed!' : 'Whoosh!'); await sleep(450); }
+  return res;
+}
+
+/* =====================================================================
+   Game state
+   ===================================================================== */
+const G = {};
+function newGame() {
+  const deckFor = () => shuffle(Object.keys(CARD_DEFS).flatMap(k => [k, k]));
+  const mk = (name) => ({ name, hp: MAX_HP, deck: deckFor(), discard: [], hand: [], cues: shuffle(CUE_POOL).slice(0, 5), cueIdx: 0, skipNext: false });
+  Object.assign(G, { me: mk('You'), opp: mk('Rival Rook'), turn: 0, myTurns: 0, over: false, phase: 'idle', picked: null, discardSel: new Set() });
+  for (let i = 0; i < HAND; i++) { draw(G.me); draw(G.opp); }
+}
+function draw(p) {
+  if (!p.deck.length) { if (!p.discard.length) return null; p.deck = shuffle(p.discard); p.discard = []; flash(p === G.me ? '#myStatus' : '#oppStatus', 'Deck reshuffled'); }
+  const c = p.deck.pop(); p.hand.push(c); return c;
+}
+const cueOf = (p) => p.cues[p.cueIdx] || null;
+const fitsCue = (p, id) => { const c = cueOf(p); return !!c && c.fits === id; };
+const other = (p) => p === G.me ? G.opp : G.me;
+
+/* ---------- rendering ---------- */
+function renderCue(sel, p, label) {
+  const box = $(sel); const c = cueOf(p); box.innerHTML = ''; box.classList.toggle('done', !c);
+  box.append(h('div', { class: 'lbl' }, label));
+  if (!c) { box.append(h('div', { class: 'pic' }, '✔️'), h('div', { class: 'left' }, 'All cues used')); return; }
+  const word = h('div', { class: 'word' }); if (c.pre) word.append(c.pre); word.append(h('span', { class: 'gap' + (c.fits.length > 1 ? ' wide' : '') })); if (c.post) word.append(c.post);
+  box.append(h('div', { class: 'pic' }, c.pic), word, h('div', { class: 'left' }, `${p.cues.length - p.cueIdx} cue${p.cues.length - p.cueIdx === 1 ? '' : 's'} left`));
+}
+function renderHp(p, bar, text) { const pct = Math.max(0, p.hp) / MAX_HP * 100; $(bar).firstElementChild.style.width = pct + '%'; $(bar).classList.toggle('low', pct <= 30); $(text).textContent = `${Math.max(0, p.hp)} / ${MAX_HP}`; }
+function render() {
+  renderHp(G.me, '#myHpBar', '#myHpText'); renderHp(G.opp, '#oppHpBar', '#oppHpText');
+  renderCue('#myCue', G.me, 'Your cue'); renderCue('#oppCue', G.opp, "Rook's cue");
+  const oh = $('#oppHand'); oh.innerHTML = ''; G.opp.hand.forEach(() => oh.append(h('div', { class: 'back' })));
+  const mh = $('#myHand'); mh.innerHTML = ''; mh.classList.toggle('active', G.phase === 'choose' || G.phase === 'discard');
+  G.me.hand.forEach((id, i) => {
+    const c = cardEl(id, (fitsCue(G.me, id) ? 'fits ' : '') + ((G.phase === 'discard' && G.discardSel.has(i)) || G.picked === i ? 'picked' : ''));
+    c.onclick = () => onCardClick(i); mh.append(c);
+  });
+  $('#deckInfo').textContent = `Your deck: ${G.me.deck.length} · Rook's deck: ${G.opp.deck.length}`;
+  $('#myStatus').textContent = G.me.skipNext ? '⏸️ Skipping next turn' : ($('#myStatus').dataset.flash || '');
+  $('#oppStatus').textContent = G.opp.skipNext ? '⏸️ Skipping next turn' : ($('#oppStatus').dataset.flash || '');
+  if (DEBUG) $('#dbgState').textContent = JSON.stringify({ turn: G.turn, phase: G.phase, me: { hp: G.me.hp, hand: G.me.hand.join(' '), cue: cueOf(G.me) && cueOf(G.me).word }, opp: { hp: G.opp.hp, hand: G.opp.hand.join(' '), cue: cueOf(G.opp) && cueOf(G.opp).word } }, null, 1);
+}
+function flash(sel, text) { const e = $(sel); e.dataset.flash = text; e.textContent = text; setTimeout(() => { e.dataset.flash = ''; render(); }, 2200); }
+function msg(text) { $('#msg').textContent = text; }
+function actions(...btns) { const a = $('#actions'); a.innerHTML = ''; a.append(...btns); }
+function setSlot(id, who) { const s = $('#slot'); s.innerHTML = ''; if (id) { const c = cardEl(id, 'new'); if (who === 'opp') c.style.transform = 'rotate(180deg)'; s.append(c); } }
+function btn(label, onclick, cls = '') { return h('button', { class: 'btn ' + cls, onclick }, label); }
+
+/* ---------- attack animation ---------- */
+async function burst(fromEl, toEl, dmg, bonus) {
+  const a = fromEl.getBoundingClientRect(), b = toEl.getBoundingClientRect();
+  const n = Math.min(8, 2 + Math.floor(dmg / 2)); SFX.whoosh();
+  const balls = [];
+  for (let i = 0; i < n; i++) {
+    const d = h('div', { class: 'burst' }); d.style.left = (a.left + a.width / 2 - 17) + 'px'; d.style.top = (a.top + a.height / 2 - 17) + 'px'; document.body.append(d); balls.push(d);
+    const dx = b.left + b.width / 2 - (a.left + a.width / 2) + (rng() - .5) * 40, dy = b.top + b.height / 2 - (a.top + a.height / 2) + (rng() - .5) * 30;
+    d.animate([{ transform: 'translate(0,0) scale(.6)' }, { transform: `translate(${dx * .5 + (rng() - .5) * 90}px, ${dy * .5}px) scale(1.1)`, offset: .5 }, { transform: `translate(${dx}px, ${dy}px) scale(.9)` }], { duration: window.__fast ? 30 : 650 + i * 60, easing: 'ease-in' });
+  }
+  await sleep(650 + n * 60);
+  balls.forEach(x => x.remove()); SFX.hit();
+  toEl.classList.remove('hit'); void toEl.offsetWidth; toEl.classList.add('hit');
+  const num = h('div', { class: 'dmgnum' }, `-${dmg}` + (bonus ? ' (+3 cue!)' : '')); num.style.left = (b.left + b.width + 6) + 'px'; num.style.top = (b.top + 4) + 'px'; document.body.append(num); setTimeout(() => num.remove(), 1200);
+}
+/* Resolve a landed attack from p with card id. */
+async function landAttack(p, id) {
+  const tgt = other(p); const d = CARD_DEFS[id]; const bonus = fitsCue(p, id); const dmg = d.dmg + (bonus ? CUE_BONUS : 0);
+  await burst($('#slot'), p === G.me ? $('#oppAvatar') : $('#myAvatar'), dmg, bonus);
+  tgt.hp -= dmg;
+  if (bonus) { const box = p === G.me ? $('#myCue') : $('#oppCue'); box.classList.remove('flash'); void box.offsetWidth; box.classList.add('flash'); p.cueIdx++; }
+  if (d.fx === 'pause') { tgt.skipNext = true; msg(`${FX.pause.icon} Pause! ${tgt === G.me ? 'You skip' : 'Rook skips'} the next turn.`); await Voice.say('Pause!'); }
+  if (d.fx === 'shush' && tgt.hand.length) { const k = Math.floor(rng() * tgt.hand.length); const lost = tgt.hand.splice(k, 1)[0]; tgt.discard.push(lost); msg(`${FX.shush.icon} Shush! ${tgt === G.me ? 'You lose' : 'Rook loses'} a card.`); await Voice.say('Shush!'); }
+  p.discard.push(id); render(); await sleep(900); setSlot(null);
+  return checkOver();
+}
+function checkOver() {
+  if (G.opp.hp > 0 && G.me.hp > 0) return false;
+  G.over = true; const won = G.opp.hp <= 0; render();
+  Voice.say(won ? 'You win the battle!' : 'Rook wins this time. Want a rematch?');
+  showPanel(h('h2', {}, won ? '🏆 You win!' : '🦉 Rook wins this time'), h('div', { class: 'prompt' }, won ? `Victory in ${G.myTurns} turns.` : `You lasted ${G.myTurns} turns. Rematch?`), h('div', { class: 'rowbtns' }, btn('Play again', () => { hidePanel(); start(); })));
+  return true;
+}
+
+/* =====================================================================
+   Turn flow (spec: Turn flow)
+   ===================================================================== */
+let turnResolve = null;
+async function playerTurn() {
+  G.turn++;
+  if (G.me.skipNext) { G.me.skipNext = false; render(); msg('⏸️ You skip this turn.'); await Voice.say('You skip this turn.'); await sleep(900); return; }
+  G.myTurns++; G.phase = 'choose'; G.picked = null; render();
+  msg('Your turn! Tap a card to attack, or discard.'); if (G.myTurns <= 2) Voice.say('Your turn. Tap a card to attack.');
+  actions(btn('Discard & draw', enterDiscard, 'alt'));
+  await new Promise(r => { turnResolve = r; });
+}
+function onCardClick(i) {
+  if (G.phase === 'choose') { G.picked = i; render(); attackWith(i); }
+  else if (G.phase === 'discard') { G.discardSel.has(i) ? G.discardSel.delete(i) : G.discardSel.add(i); render(); updDiscardBtn(); }
+}
+function enterDiscard() {
+  G.phase = 'discard'; G.discardSel = new Set(); render(); msg('Pick up to 5 cards to swap.');
+  actions(btn('Swap 0 cards', doDiscard, 'warn'), btn('Cancel', () => { G.phase = 'choose'; render(); msg('Your turn! Tap a card to attack, or discard.'); actions(btn('Discard & draw', enterDiscard, 'alt')); }, 'alt')); updDiscardBtn();
+}
+function updDiscardBtn() { const b = $('#actions .btn'); if (!b) return; const n = G.discardSel.size; b.textContent = `Swap ${n} card${n === 1 ? '' : 's'}`; b.disabled = n === 0; }
+async function doDiscard() {
+  const idx = [...G.discardSel].sort((a, b) => b - a); for (const i of idx) G.me.discard.push(G.me.hand.splice(i, 1)[0]);
+  for (let k = 0; k < idx.length; k++) draw(G.me);
+  G.phase = 'busy'; actions(); render(); msg(`You swapped ${idx.length} card${idx.length === 1 ? '' : 's'}.`); await sleep(900); endTurn();
+}
+async function attackWith(i) {
+  const id = G.me.hand[i]; G.phase = 'busy'; actions(); render();
+  await traceCard(id);                                                       // 1. trace to select
+  const n = await speakStep(id, 'name', { title: 'Name it to place it' });     // 2. name to place
+  G.me.hand.splice(i, 1); G.picked = null; hidePanel(); setSlot(id, 'me'); render();
+  msg(`You placed ${id}.`); await sleep(400);
+  const s = await speakStep(id, 'sound', { title: 'Say its sound to blast it!' });   // 3. sound to fire
+  hidePanel(); msg('');
+  dlog('attack', id, 'name via', n.via, 'sound via', s.via);
+  const over = await landAttack(G.me, id); if (over) return;
+  while (G.me.hand.length < HAND && draw(G.me)) {}
+  render(); endTurn();
+}
+function endTurn() { G.phase = 'idle'; render(); const r = turnResolve; turnResolve = null; if (r) r(); }
+
+function oppChoose() {
+  const hand = G.opp.hand; const cue = cueOf(G.opp);
+  let k = cue ? hand.indexOf(cue.fits) : -1;
+  if (k < 0) { let best = -1; hand.forEach((id, j) => { if (best < 0 || CARD_DEFS[id].dmg > CARD_DEFS[hand[best]].dmg) best = j; }); k = best; }
+  return k;
+}
+async function oppTurn() {
+  G.turn++;
+  if (G.opp.skipNext) { G.opp.skipNext = false; render(); msg('⏸️ Rook skips this turn.'); await Voice.say('Rook skips this turn.'); await sleep(900); return 'done'; }
+  msg("Rook's turn…"); await sleep(800);
+  const k = oppChoose(); if (k < 0) return 'done';
+  const id = G.opp.hand.splice(k, 1)[0]; render();
+  setSlot(id, 'opp'); msg('Rook traces a card…'); await sleep(1100);
+  /* Defend window: from the player's 2nd turn on, before Rook names the card. No timer. */
+  if (G.myTurns >= 1 && G.turn > 2) {
+    msg('Rook is about to name it. Defend?');
+    const choice = await new Promise(r => actions(btn('🛡️ Defend! (say its sound)', () => r('defend'), 'warn'), btn('Let it through', () => r('pass'), 'alt')));
+    actions();
+    if (choice === 'defend') {
+      const res = await speakStep(id, 'sound', { title: 'Defend! Say its sound to steal it', mode: 'defend' });
+      hidePanel();
+      if (res.ok) {
+        msg(`🛡️ Blocked! You stole ${id}.`); Voice.say('Blocked! You stole it!'); SFX.chime();
+        G.me.hand.push(id); setSlot(null); while (G.opp.hand.length < HAND && draw(G.opp)) {} render(); await sleep(1400);
+        return 'defended';        // decision 1: defending uses your next turn
+      }
+      msg('The defense missed. Here it comes!'); await sleep(900);
+    }
+  }
+  const d = CARD_DEFS[id]; msg(`Rook: "${id}… ${d.sound}!"`);
+  await Voice.say(`${d.nameTts}.`, { pitch: 0.8 }); await Voice.say(d.soundTts + '!', { pitch: 0.8 });
+  const over = await landAttack(G.opp, id); if (over) return 'over';
+  while (G.opp.hand.length < HAND && draw(G.opp)) {}
+  msg(''); render(); return 'done';
+}
+
+async function loop(first) {
+  let who = first;
+  while (!G.over) {
+    if (who === 'me') { await playerTurn(); if (G.over) return; who = 'opp'; }
+    else { const r = await oppTurn(); if (r === 'over' || G.over) return; who = r === 'defended' ? 'opp' : 'me'; }
+  }
+}
+
+/* ---------- start ---------- */
+async function coinFlip() {
+  const first = rng() < 0.5 ? 'me' : 'opp';
+  showPanel(h('h2', {}, 'Coin flip'), h('div', { class: 'prompt', style: 'font-size:60px' }, '🪙'));
+  await sleep(900); const txt = first === 'me' ? 'You go first!' : 'Rook goes first.';
+  setPrompt(txt); await Voice.say(txt); await sleep(500); hidePanel(); return first;
+}
+async function start() {
+  newGame(); setSlot(null); msg(''); actions(); render();
+  const first = await coinFlip(); loop(first);
+}
+function intro() {
+  const status = h('div', { class: 'sub' }, SPEECH ? 'You will need the microphone. Chrome works best.' : 'Speech is off: you will tap instead of speaking.');
+  showPanel(h('h2', {}, '⚔️ Card Battle: Phase 2'), h('div', { class: 'prompt' }, 'Trace a card to pick it up. Say its name to place it. Say its sound to blast Rook!'),
+    h('div', { class: 'sub', style: 'margin-bottom:10px' }, 'When Rook plays a card, you can defend by saying its sound, and steal it.'), status,
+    h('div', { class: 'rowbtns' }, btn('Start battle', async () => {
+      SFX.init(); Voice.init();
+      if (SPEECH) { const r = await Rec.enable(); dlog('mic', r); if (r !== 'ok') { SPEECH = false; status.textContent = 'No microphone (' + r + '). Playing with taps.'; await sleep(1200); } }
+      hidePanel(); start();
+    })));
+}
+loadEngines().then(intro).catch(e => { showPanel(h('h2', {}, 'Could not load'), h('div', { class: 'sub' }, String(e) + ' (open over http, not file://)')); });
+window.__game = { G, TE: () => TE, CARD_DEFS };
+</script>
+</body>
+</html>
