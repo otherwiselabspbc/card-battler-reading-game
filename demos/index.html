@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Battler Demos</title>
+<style>
+  :root { --bg: #faf7f2; --fg: #2a2530; --muted: #6b6475; --card: #fff; --line: #e4ddd2; --accent: #6b4fd8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1c1a21; --fg: #ece8f2; --muted: #a59fb0; --card: #26232d; --line: #3a3642; --accent: #a28cff; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.5 system-ui, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 40px 16px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  p.sub { margin: 0 0 28px; color: var(--muted); }
+  ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  li a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  li span { display: block; color: var(--muted); font-size: 15px; }
+  .empty { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Card Battler Demos</h1>
+  <p class="sub">Playable slices of each game phase. Best in desktop Chrome with the microphone allowed.</p>
+  <ul id="demos">
+    <!-- Add one <li> per demo: <li><a href="phase-2-battle/">Phase 2 battle</a><span>One line on what it tests.</span></li> -->
+    <li class="empty">No demos yet. Phase 2 battle is next.</li>
+  </ul>
+</main>
+</body>
+</html>
