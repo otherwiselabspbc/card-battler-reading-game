@@ -28,13 +28,16 @@ Right now the only player is the project owner, who is playtesting the *feel* of
 
 ## Shared modules (`shared/`)
 
+Test a demo headlessly with Playwright: serve the repo root over http, set `window.__fast = true` in an init script (speeds up waits and skips speech synthesis), load with `?speech=off&debug=1&seed=N`, trace with real mouse moves along `TE.letters[ch].strokes[i].pts` mapped through the SVG's `getScreenCTM()`, and tap through the fallbacks. `window.__game` and `window.__tracing` expose state for this.
+
 | File | What it is |
 |---|---|
 | `strokes-lowercase.json`, `strokes-uppercase.json` | Stroke definitions for a–z / A–Z (provisional ball-and-stick print). From Activity Compilation. |
 | `trace-engine.js` | `TraceEngine.create(strokes, {looseness})` → `letters`, `tolFor(pointerType)`, `analyzeStroke(...)`. Scores the motion, not just the ink. |
 | `speech-letters.js` | `SpeechLetters.create(letters)` → `scoreTranscript(alts, target, {units})` for letter **names**. Same-family names (b/d/e…) come back `uncertain`, never `incorrect`. |
+| `speech-sounds.js` | `SpeechSounds.create(speechLetters)` → `scoreSound(alts, target, {strict})` for sounds, and `scoreName` that also handles digraph names ("es aitch"). Loose by default: the name passes for the sound. New game work, tuned only by guesswork so far. |
 
-Both modules were lifted unchanged from `activities/see-trace-name-letters` in Activity Compilation, apart from their wrappers. Fix bugs here, and note the fix in the file header so it can go back upstream. **Phoneme (sound) recognition does not exist yet**: browser speech recognition is weak on isolated sounds like /m/. Build it as `shared/speech-sounds.js` with a lexicon of how the recogniser spells sounds ("mmm", "sss", "buh"), and test it against the owner's voice.
+Both modules were lifted unchanged from `activities/see-trace-name-letters` in Activity Compilation, apart from their wrappers. Fix bugs here, and note the fix in the file header so it can go back upstream. **Sound recognition is the weakest part**: browser speech recognition is built for words, so an isolated /m/ often comes back as "M" or nothing. `speech-sounds.js` holds guessed spellings. Tighten them from real captures logged by `?debug=1`.
 
 ## Working rules
 

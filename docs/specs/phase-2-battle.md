@@ -1,6 +1,6 @@
 # Phase 2 demo spec — Solo battle with Basic Cards
 
-_Status: approved 2026-11-21_ · _Demo: `demos/phase-2-battle/`_
+_Status: built (v1), awaiting playtest_ · _Demo: `demos/phase-2-battle/`_
 
 ## Goal of this demo
 Let the owner play one full battle against a computer opponent and judge whether tracing, naming and sounding out a letter *feel like* casting a card. It also tests whether cue cards and defend-and-steal add good tension.
